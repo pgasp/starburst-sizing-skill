@@ -21,105 +21,13 @@ Reference doc: `research/starburst-cluster-sizing.md`
 
 ## Phase A — Extract inputs
 
-### If inputs are provided (full or partial)
-Extract from the conversation, account notes, or context. Jump to Phase B immediately after running the translation table.
+**If inputs provided:** extract from conversation/notes, jump to Phase B after translation table.
 
 ### If no inputs provided — output the intake form
 
-Output the form below verbatim. Wait for the customer to fill it in, then apply the **translation table** to convert answers into sizing parameters before Phase B.
+Read and display `questionnaires/questionnaire-client-en.md` (EN) or `questionnaires/questionnaire-client-fr.md` (FR). Wait for the customer to fill it in, then apply the **translation table** below.
 
----
-
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  PLATFORM SIZING — INTAKE FORM
-  Fill in what you know. Leave blank what you don't.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-SECTION 1 — USERS
-─────────────────────────────────────────────────────────
-1a. How many people use the platform at the same time
-    during peak hours (e.g. Monday 9am)?
-    → __________ users at peak
-
-1b. Who are the primary users? (check all that apply)
-    [ ] Business users / report consumers
-        (Tableau, Power BI, Looker, Qlik…)
-    [ ] Data analysts / data scientists
-        (exploratory SQL, ad-hoc queries, notebooks)
-    [ ] Data engineers / developers
-        (pipelines, data processing, dbt, Spark…)
-    [ ] Estimated split: ____% business / ____% technical
-
-
-SECTION 2 — SPEED EXPECTATIONS
-─────────────────────────────────────────────────────────
-2a. How fast do queries need to complete?
-    [ ] Interactive — under 5 seconds
-        (live dashboards, real-time reports)
-    [ ] Acceptable — 5 to 30 seconds
-        (occasional wait is fine)
-    [ ] Batch — minutes are acceptable
-        (automated jobs, not user-facing)
-
-2b. Do users often run the same queries or open the same
-    reports repeatedly?
-    [ ] Yes — mostly fixed dashboards, same filters,
-              same time periods every day
-    [ ] No  — queries vary widely, unpredictable
-    [ ] Both
-
-
-SECTION 3 — DATA
-─────────────────────────────────────────────────────────
-3a. Approximate volume of data to be queried:
-    → __________ GB / TB  (total dataset or largest table)
-
-3b. Do users typically query only a recent slice of data?
-    [ ] Yes — mostly the last ______ months / years
-              out of ______ years of total history
-    [ ] No  — queries can touch the full history
-
-3c. How fast is your data growing?
-    [ ] Stable       [ ] ~20% per year
-    [ ] >50% per year    [ ] Unknown
-
-
-SECTION 4 — INFRASTRUCTURE
-─────────────────────────────────────────────────────────
-4a. Where will this platform run?
-    [ ] Cloud — provider: [ ] AWS  [ ] Azure  [ ] GCP
-    [ ] On-premises (private data center / your own servers)
-
-4b. What data sources will be connected?
-    [ ] Data lake / object storage (S3, ADLS, GCS, HDFS…)
-    [ ] Relational databases (Oracle, PostgreSQL, SQL Server,
-        MySQL, Informix…)  → list: ____________________
-    [ ] Both
-
-4c. How many environments are needed?
-    [ ] Production only
-    [ ] Production + Staging / Test
-    [ ] Production + Staging + Development
-    [ ] Other: __________
-
-
-SECTION 5 — AVAILABILITY & CONTINUITY
-─────────────────────────────────────────────────────────
-5a. If the platform has an incident, how long can it be
-    unavailable before it becomes a serious problem?
-    [ ] Not at all — must stay up at all times
-        (trading, critical operations, regulatory)
-    [ ] Up to 15–30 minutes — automatic failover acceptable
-    [ ] Up to a few hours — manual intervention acceptable
-    [ ] No specific requirement
-
-5b. Any regulatory or contractual availability obligations?
-    [ ] Yes — specify: ____________________
-    [ ] No / Unknown
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
+> File not found? Ask directly: peak concurrent users, target query SLA, approximate data volume.
 
 ---
 
@@ -167,15 +75,8 @@ Never expose these mappings to the customer.
 
 ### Warp Speed — additional inputs (if Elite tier considered)
 
-Ask only if Warp Speed / Elite tier is mentioned:
-> - **Workload profile**: repetitive BI, ad-hoc, or ETL?
-> - **Hot data volume**: what portion is regularly accessed? *(e.g. last 3 months of 5 years)*
-
-| Profile | Cache hit rate | Warp Speed useful? |
-|---|---|---|
-| Repetitive BI dashboards | 80–95% | ✅ Strong ROI |
-| Ad-hoc exploration | 20–40% | ⚠️ Moderate ROI |
-| ETL / full scans | < 10% | ❌ No value — do not recommend |
+Ask only if mentioned: workload profile (BI / ad-hoc / ETL) + hot data volume (e.g. last 3 months of 5 years).
+Cache hit rate by profile: BI 80–95% ✅ strong ROI | Ad-hoc 20–40% ⚠️ moderate | ETL < 10% ❌ do not recommend.
 
 ### Sensitivity table (if ≥ 1 metric uncertain)
 
@@ -189,7 +90,7 @@ Ask only if Warp Speed / Elite tier is mentioned:
 
 ## Phase B — Parallel sizing computation
 
-Spawn the three agents below **in a single message** (parallel). Each receives only its input packet. After all return, run the merge.
+Spawn in a **single message** (parallel). After all return, merge.
 
 ### Sizing reference tables
 
@@ -364,21 +265,13 @@ all_flags           = union(agent1.flags, agent2.flags, agent3.flags)
 
 ### Node constraints (Starburst documentation — hard rules)
 
-| Constraint | Rule |
-|---|---|
-| **Minimum production node** | 16 vCPU / 64 GB RAM |
-| **Homogeneous cluster** | All workers identical spec — no mixing |
-| **Warp Speed homogeneity** | All workers NVMe if cache active — no mixing |
-
-**Recommended specs:**
-
-| Role | Minimum | Recommended |
+| Role | Min (hard floor) | Recommended |
 |---|---|---|
 | Coordinator | 16 vCPU / 64 GB | 32 vCPU / 128 GB |
 | Worker (standard) | 16 vCPU / 64 GB | 32 vCPU / 128 GB |
 | Worker (NVMe) | 16 vCPU / 64 GB + NVMe | 32 vCPU / 128 GB + NVMe |
 
-> Use customer's actual node spec: `Workers = ceil(target_vCPUs / vCPU_per_node)`. Default: 32 vCPU/node.
+All workers must be identical spec. Warp Speed → all workers NVMe (no mixing). `Workers = ceil(target_vCPUs / vCPU_per_node)` — default 32 vCPU/node.
 
 ### SEP cluster config
 
@@ -387,8 +280,6 @@ all_flags           = union(agent1.flags, agent2.flags, agent3.flags)
 | Coordinator | ≥ 32 vCPU / 128 GB RAM — always size generously |
 | Workers | `workers_retained` — homogeneous, same spec |
 | Max workers | 32 / coordinator — beyond → DSR, flag immediately |
-
-> Coordinator metrics not exposed by default → JMX or Starburst Insights.
 
 ### Autoscaling
 
@@ -399,7 +290,7 @@ all_flags           = union(agent1.flags, agent2.flags, agent3.flags)
 | ETL | ❌ Not recommended — prefer batch scheduling |
 | Mixed | ✅ For BI component; exclude ETL windows |
 
-`min_workers` = off-peak floor (measured in POC); `max_workers` = workers_retained (tested ceiling).
+`min_workers` = off-peak floor (POC); `max_workers` = workers_retained (tested ceiling).
 
 ### Growth headroom
 
@@ -419,15 +310,13 @@ Final prod workers = ceil(workers_retained × (1 + growth% / 100))
 
 ### Disaster Recovery
 
-Always clarify DR mode before sizing — licensing impact can double the cost. Involve AE.
+Always clarify DR mode before sizing (licensing impact can double cost — involve AE):
 
 | DR mode | Steady-state workers | Failover workers | Licensing |
 |---|---|---|---|
 | **Active/Active** | = N (100%) | = N | Doubles total |
 | **Active/Passive Warm** | max(2, ceil(N × 0.40)) | = N (scale-out on event) | Steady-state |
 | **Active/Passive Cold** | 1 coordinator | = N (fresh deploy) | Minimal — high RTO |
-
-**Default: Active/Passive Warm** — same version/config/node types as PROD; auto scale-out on DR event.
 
 ### Node type
 
@@ -436,26 +325,16 @@ Always clarify DR mode before sizing — licensing impact can double the cost. I
 | Standard | ≥ 16 vCPU / 64 GB, recommended 32/128 | All workers identical |
 | Warp Speed | Same vCPU/RAM + local NVMe | **All workers NVMe** — no mixing |
 
-> ⚠️ Warp Speed = **Elite tier**. Quantify: `(N NVMe + Elite)` vs `(N+k standard + Standard)`. Involve AE.
-> Cloud NVMe reference examples: see Phase B NVMe defaults table.
-
-### SEP on-prem overhead
-Add HMS, Ranger, Backend Service (~4–8 vCPUs each). Provision separately — not in licensed vCPU count.
+> ⚠️ Warp Speed = **Elite tier**. Quantify: `(N NVMe + Elite)` vs `(N+k standard + Standard)`. Involve AE. NVMe reference: see Phase B NVMe defaults table.
 
 ---
 
 ## Phase D — Output
 
 ```
-╔══════════════════════════════════════════════════════════╗
-║          STARBURST CLUSTER SIZING RECOMMENDATION         ║
-╚══════════════════════════════════════════════════════════╝
+STARBURST SIZING — <account>  |  <YYYY-MM-DD>
 
-CLIENT / CONTEXT : <account>          DATE : <YYYY-MM-DD>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-WORKLOAD INPUTS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+── WORKLOAD INPUTS ───────────────────────────────────────
 Workload type       : <BI dashboards / Ad-hoc / ETL / Mixed>
 Expected bottleneck : <Coordinator / Worker memory / Worker compute>
 Concurrency         : <n> users  [confirmed / assumption]
@@ -466,82 +345,56 @@ Deployment          : <Galaxy / SEP K8s / SEP VM>
 DR required         : <yes — mode: Active/Active | Warm | Cold / no>
 Expected growth     : <n>% / 12 months
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-T-SHIRT SCORING
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+── T-SHIRT SCORING ───────────────────────────────────────
 Concurrency  : <n> users  → <S/M/L> (<pts> pt)
 Volume       : <n> GB     → <S/M/L> (<pts> pt)
 SLA          : <n> s      → <S/M/L> (<pts> pt)
-             ─────────────────────────────────
-Total        : <n> pts    → T-Shirt <S/M/L/XL>  →  <n> vCPUs  →  <n> workers
+             ──────────────────────────────────
+Total        : <n> pts  → T-Shirt <S/M/L/XL>  →  <n> vCPUs  →  <n> workers
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-NETWORK CHECK
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+── NETWORK CHECK ─────────────────────────────────────────
 <detailed calculation OR "N/A — uncertain inputs">
 Dominant constraint : <T-shirt / network>  →  <n> workers
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PRODUCTION RECOMMENDATION  (growth +<n>%)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+── PRODUCTION RECOMMENDATION  (growth +<n>%) ────────────
 Node spec    : <vCPU> vCPU / <RAM> GB RAM  (min 16 vCPU / 64 GB)
 Coordinator  : 1 node — <vCPU> vCPU / <RAM> GB  (recommended ≥ 32 / 128)
 Workers      : <n> nodes — <vCPU> vCPU / <RAM> GB each  [homogeneous]
 Total vCPUs  : <n> (workers) + <n> (coordinator)
 Autoscaling  : <yes min=<n>/max=<n> / no>
-Recommended memory config:
   query.max-memory          = <value>
   query.max-memory-per-node = <value>
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-MULTI-ENVIRONMENT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+── MULTI-ENVIRONMENT ─────────────────────────────────────
 Prod          : <n> workers  →  <n> vCPUs
 DR (steady)   : <n> workers  →  <n> vCPUs  (<mode>)
 DR (failover) : <n> workers  →  <n> vCPUs  (envelope max)
 UAT           : <n> workers  →  <n> vCPUs  (~30% prod)
 DEV           : <n> workers  →  <n> vCPUs  (~10% prod)
-──────────────────────────────────────────────────────
-TOTAL licensed: <n> vCPUs  (steady-state)
-TOTAL envelope: <n> vCPUs  (DR at full capacity)
+TOTAL licensed: <n> vCPUs  |  TOTAL envelope: <n> vCPUs
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-WARP SPEED / CACHING                    ← omit if not active
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Workload profile    : <BI dashboards / ad-hoc>
-Cache hit rate      : ~<N>%
-Raw volume/query    : <N> GB → Effective: <N> GB after cache
-Hot data size       : <N> GB
-Cache per worker    : <N> GB  (NVMe <N> GB × 0.85)
-Workers (cache min) : <N>  = ceil(<hot_data> / <cache_per_worker>)
-Workers retained    : max(T-shirt=<N>, cache=<N>) = <N>
-Node type           : NVMe-backed — <vCPU> vCPU / <RAM> GB / <NVMe> GB  [ALL workers NVMe]
-⚠️ Elite tier required — involve AE (trade-off: license + node cost)
+── WARP SPEED / CACHING  (omit if not active) ────────────
+Workload profile : <BI / ad-hoc>  |  Cache hit rate : ~<N>%
+Raw vol/query    : <N> GB  →  Effective: <N> GB after cache
+Hot data         : <N> GB  |  Cache/worker: <N> GB (NVMe × 0.85)
+Workers (cache)  : ceil(<hot>/<cache_pw>) = <N>
+Workers retained : max(T-shirt=<N>, cache=<N>) = <N>
+Node type        : NVMe-backed — <vCPU>/<RAM>/<NVMe>  [ALL workers NVMe]
+⚠️ Elite tier — involve AE (trade-off: license + node cost)
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-POV STARTING CONFIG  (GTM Playbook)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Node spec →  customer spec (min 16 vCPU / 64 GB per node)
-Start     →  1 coordinator + 8 workers — same spec, homogeneous
-Iterate   →  scale coordinator OR workers (never both) if not sustained
-Target    →  <n> final workers
+── POV STARTING CONFIG ───────────────────────────────────
+Start   →  1 coordinator + 8 workers — same spec (min 16 vCPU / 64 GB), homogeneous
+Iterate →  scale coordinator OR workers (never both) if not sustained
+Target  →  <n> final workers
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PRE-POV CHECKLIST
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-□ ANALYZE on all test tables        (missing stats = cluster appears undersized)
-□ QPS limit raised above 40         (SEP default — must do before any load test)
-□ Average file size: 64–512 MB      (small-file problem = degraded performance)
-□ 5–10 representative queries       (peak + common)
-□ Target latencies confirmed        (P50 / P95 / P99)
-□ All nodes homogeneous             (same vCPU/RAM spec)
-□ Node spec ≥ 16 vCPU / 64 GB RAM
+── PRE-POV CHECKLIST ─────────────────────────────────────
+□ ANALYZE on all test tables  (missing stats = cluster appears undersized)
+□ QPS limit raised above 40   (SEP default — must do before any load test)
+□ Avg file size: 64–512 MB    (small-file problem = degraded perf)
+□ 5–10 representative queries (peak + common); latencies P50/P95/P99 confirmed
+□ All nodes homogeneous — spec ≥ 16 vCPU / 64 GB RAM
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠  FLAGS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[Show only those that apply]
-
+── FLAGS (show only applicable) ──────────────────────────
 [ASSUMPTIONS]  <list assumed inputs>
 [JDBC]         Single-thread (~5 MB/s) — maximize pushdowns, consider MVs
 [MIXED]        Test JDBC workloads separately
@@ -558,7 +411,7 @@ PRE-POV CHECKLIST
 
 ## Phase D.5 — Parallel verification (HITL)
 
-Spawn the 6 agents below **in a single message** (parallel). Do not proceed to Phase E until all return and the verdict is presented.
+Spawn in a **single message** (parallel). Do not proceed to Phase E until all return and verdict is presented.
 
 **Agent persona (all 6):** You are a Senior Starburst Solutions Architect. Review this sizing critically. Return structured JSON only — no prose outside the JSON.
 
@@ -721,34 +574,23 @@ ready_to_save  = (total_blocking == 0)
 ```
 
 ```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-STARBURST SIZING — PEER REVIEW (Sr. SA)
-Client: <client>   T-shirt: <S/M/L/XL>   Workers: <N>
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-V1  WORKLOAD COHERENCE      ✅/❌/⚠️  <results>
-V2  T-SHIRT SCORING         ✅/❌/⚠️  <results>
-V3  NETWORK CHECK           ✅/❌/⚠️  <results>
-V4  WARP SPEED CACHE        ✅/❌/⚠️  <results>  ← SKIPPED if inactive
-V5  DR SIZING               ✅/❌/⚠️  <results>  ← SKIPPED if no DR
-V6  FLAGS                   ✅/❌/⚠️  <results>
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-VERDICT
-  ❌ Blocking: <N> — revision required
-  ⚠️  Warnings: <N>
-  ✅ Ready to save: <yes / no>
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PEER REVIEW — <client>  T-shirt: <X>  Workers: <N>
+V1 WORKLOAD COHERENCE  ✅/❌/⚠️  <results>
+V2 T-SHIRT SCORING     ✅/❌/⚠️  <results>
+V3 NETWORK CHECK       ✅/❌/⚠️  <results>
+V4 WARP SPEED CACHE    ✅/❌/⚠️  <results>  [SKIPPED if inactive]
+V5 DR SIZING           ✅/❌/⚠️  <results>  [SKIPPED if no DR]
+V6 FLAGS               ✅/❌/⚠️  <results>
+VERDICT: ❌ Blocking: <N>  ⚠️ Warnings: <N>  ✅ Ready: <yes/no>
 ```
 
-**HITL:** "Peer review complete. <N> blocking issue(s) / All checks passed. Fix and re-run, or confirm to save?"
-- Blocking → do not proceed. Fix and re-run verification.
-- Warnings only or clean → proceed on user confirmation.
+**HITL:** Present verdict. Blocking → do not proceed, fix and re-run. Warnings only / clean → confirm to save.
 
 ---
 
 ## Phase E — Save (optional)
 
-Propose: `account/<Account>/<YYYY-MM-DD> - Cluster Sizing Recommendation.md`
-Confirm: "Sizing saved → `account/<Account>/YYYY-MM-DD - Cluster Sizing Recommendation.md`"
+Propose and confirm: `account/<Account>/<YYYY-MM-DD> - Cluster Sizing Recommendation.md`
 
 ---
 
