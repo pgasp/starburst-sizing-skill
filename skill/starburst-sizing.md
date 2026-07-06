@@ -122,13 +122,29 @@ Spawn in a **single message** (parallel). After all return, merge.
 | ETL | Worker compute | Top of range; Warp Speed not applicable |
 | Mixed BI+ETL | Interference | ⚠️ Recommend separate clusters if ETL > 4h |
 
-**Memory config:**
+**Memory config — formula (replaces static table):**
 
-| Workload | query.max-memory | query.max-memory-per-node |
+```
+heap_fraction        = 0.70                             ← JVM heap as fraction of RAM
+overhead_factor      = workload-dependent (see below)
+heap_total_GB        = workers × RAM_per_worker_GB × heap_fraction
+query.max-memory     = min(
+                         heap_total_GB / concurrency,   ← fair share across parallel queries
+                         volume_GB × overhead_factor    ← processing overhead (joins, sorts, aggs)
+                       )
+query.max-memory-per-node = (RAM_per_worker_GB × heap_fraction) / concurrency
+```
+
+**Overhead factor by workload type:**
+
+| Workload | overhead_factor | Rationale |
 |---|---|---|
-| BI dashboards | 20 GB | 1 GB |
-| Ad-hoc | 50–100 GB | 5–10 GB |
-| ETL | 100–200 GB | 10–20 GB |
+| BI dashboards | 0.15 | Filtered queries, low intermediate state |
+| Ad-hoc | 0.25 | Larger scans, more complex joins |
+| ETL | 0.30 | Full scans, heavy aggregations |
+| Mixed | 0.20 | Conservative middle ground |
+
+Round results to nearest GB. Floor: `query.max-memory` ≥ 4 GB, `query.max-memory-per-node` ≥ 1 GB.
 
 **Network bandwidth formula:**
 ```
@@ -169,7 +185,7 @@ cache_workers_min   = ceil(hot_data_GB / cache_per_worker_GB)
 }
 ```
 
-> Apply the T-shirt scoring grid, calibration rules, workload modifier, growth formula `ceil(workers × (1 + growth_pct/100))`, and memory config from the Phase B reference tables above. Return JSON only — no prose.
+> Apply the T-shirt scoring grid, calibration rules, workload modifier, growth formula `ceil(workers × (1 + growth_pct/100))`, and memory formula from the Phase B reference tables above. Return JSON only — no prose.
 
 ```json
 {
@@ -180,8 +196,20 @@ cache_workers_min   = ceil(hot_data_GB / cache_per_worker_GB)
   "workers_calibrated": 7,
   "workers_with_growth": 9,
   "workload_modifier_note": "BI dashboards — top of range",
-  "memory_max": "20 GB",
-  "memory_per_node": "1 GB",
+  "memory_formula": {
+    "heap_total_GB": "<workers × RAM × 0.70>",
+    "fair_share_GB": "<heap_total / concurrency>",
+    "processing_overhead_GB": "<volume_GB × overhead_factor>",
+    "overhead_factor": 0.15,
+    "memory_max": "<min(fair_share, processing_overhead)> GB",
+    "memory_per_node": "<RAM × 0.70 / concurrency> GB"
+  },
+  "node_ram_derivation": {
+    "formula": "max(64, ceil((concurrency × memory_per_node) / 0.70))",
+    "RAM_worker_derived_GB": "<computed value>",
+    "RAM_worker_recommended_GB": "<rounded to standard tier: 64|128|256>",
+    "override_applied": "<true if Ad-hoc/ETL and derived < 128>"
+  },
   "flags": []
 }
 ```
@@ -272,6 +300,25 @@ all_flags           = union(agent1.flags, agent2.flags, agent3.flags)
 | Worker (NVMe) | 16 vCPU / 64 GB + NVMe | 32 vCPU / 128 GB + NVMe |
 
 All workers must be identical spec. Warp Speed → all workers NVMe (no mixing). `Workers = ceil(target_vCPUs / vCPU_per_node)` — default 32 vCPU/node.
+
+### Worker RAM derivation — formula
+
+Do not use 128 GB as a constant. Derive from workload (non-circular):
+
+```
+needed_per_node_GB = (volume_GB × overhead_factor) / workers_retained   ← per query, per node
+RAM_worker_GB      = max(64, ceil((concurrency × needed_per_node_GB) / heap_fraction))
+```
+
+Simplified form:
+```
+RAM_worker_GB = max(64, ceil((volume_GB × overhead_factor × concurrency) / (workers_retained × heap_fraction)))
+```
+
+Round up to the nearest standard tier: 64 → 128 → 256 GB.
+
+> If derived < 128 GB and workload is Ad-hoc or ETL → override to 128 GB minimum (spill-to-disk risk on complex joins/sorts). Add `[NODE-SPEC]` flag.
+> If derived < 128 GB and workload is BI → 64 GB is valid; add `[NODE-SPEC]` as informational note (Starburst recommended = 128 GB).
 
 ### SEP cluster config
 
@@ -429,7 +476,14 @@ Skip format: `{"check": "<name>", "skipped": true}`
   "etl_pct": <0–100>,
   "coordinator_vCPU": <N>,
   "coordinator_RAM_GB": <N>,
+  "workers": <N>,
+  "RAM_per_worker_GB": <N>,
+  "concurrency": <N>,
+  "volume_GB": <N>,
+  "overhead_factor": <0.15|0.20|0.25|0.30>,
   "memory_max": "<value>",
+  "memory_per_node": "<value>",
+  "heap_total_GB": <N>,
   "warp_speed_active": <true|false>,
   "workload_type_confirmed": <true|false>
 }
@@ -438,7 +492,11 @@ Skip format: `{"check": "<name>", "skipped": true}`
 Checks:
 - ❌ Warp Speed active with ETL > 50%
 - ❌ BI dashboards but coordinator < 32 vCPU / 128 GB RAM
-- ⚠️ Ad-hoc with `query.max-memory` = 20 GB (default, likely too low)
+- ❌ `query.max-memory` > `heap_total_GB / concurrency` (exceeds fair share — OOM risk)
+- ❌ `query.max-memory-per-node` > `RAM_per_worker × 0.70 / concurrency` (per-node OOM risk)
+- ❌ `RAM_worker_recommended_GB` ≠ standard tier (64 / 128 / 256) — non-standard spec
+- ⚠️ `query.max-memory` < 4 GB or `query.max-memory-per-node` < 1 GB (below floor)
+- ⚠️ `RAM_worker_derived_GB` < 128 GB on Ad-hoc or ETL without override flag
 - ⚠️ Mixed BI+ETL without separate-cluster note
 - ⚠️ Workload type inferred without [ASSUMPTIONS] flag
 
