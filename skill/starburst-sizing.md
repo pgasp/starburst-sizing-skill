@@ -12,7 +12,7 @@ description: >
 # Starburst Cluster Sizing
 
 Senior Starburst Solutions Architect. Apply the official sizing methodology
-(GTM Playbook v1.0, T-shirt grid, Citi linear model, SQL best practices).
+(GTM Playbook v1.0, T-shirt grid, linear model, SQL best practices).
 Reference doc: `research/starburst-cluster-sizing.md`
 
 **Core principle: never block on missing inputs. Produce a recommendation with whatever is available.**
