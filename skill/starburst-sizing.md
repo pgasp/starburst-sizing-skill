@@ -88,9 +88,24 @@ Cache hit rate by profile: BI 80–95% ✅ strong ROI | Ad-hoc 20–40% ⚠️ m
 
 ---
 
-## Phase B — Parallel sizing computation
+## Phase B — Routing + sizing computation
 
-Spawn in a **single message** (parallel). After all return, merge.
+### Fast path vs full path
+
+Evaluate before spawning any agent.
+
+**Fast path — inline computation, no agents** (all must be true):
+- All 3 inputs confirmed (concurrency, volume, SLA — no [ASSUMPTIONS] flag needed)
+- Warp Speed NOT active (not requested, not Elite tier)
+- DR NOT required
+- Single workload type (not Mixed with ETL > 50%)
+
+→ Apply T-shirt grid, network formula, and memory formula directly inline. Skip to Phase C.
+
+**Full path — parallel agents** (any fast-path condition is false):
+→ Spawn agents below in a **single message**.
+
+> **Agent type: `subagent_type: "general-purpose"` — NOT fork.** Each agent is self-contained and receives only its input packet below, not the conversation context. Forks inherit the full context and are 5–10× slower for these arithmetic tasks.
 
 ### Sizing reference tables
 
@@ -185,7 +200,7 @@ cache_workers_min   = ceil(hot_data_GB / cache_per_worker_GB)
 }
 ```
 
-> Apply the T-shirt scoring grid, calibration rules, workload modifier, growth formula `ceil(workers × (1 + growth_pct/100))`, and memory formula from the Phase B reference tables above. Return JSON only — no prose.
+> Apply the T-shirt scoring grid, calibration rules, workload modifier, growth formula `ceil(workers × (1 + growth_pct/100))`, and memory formula from the Phase B reference tables above. **Return JSON only — stop after the JSON. Do NOT merge results. Do NOT run the network check. Do NOT produce Phase D output.**
 
 ```json
 {
@@ -231,7 +246,7 @@ cache_workers_min   = ceil(hot_data_GB / cache_per_worker_GB)
 
 > `volume_effective_GB` = raw volume if Warp Speed inactive; `raw × (1 - hit_rate)` if active.
 
-> Apply the network bandwidth formula from Phase B. If `inputs_confirmed = false`, skip and return null. Return JSON only — no prose.
+> Apply the network bandwidth formula from Phase B. If `inputs_confirmed = false`, skip and return null. **Return JSON only — stop after the JSON. Do NOT produce Phase D output.**
 
 ```json
 {
@@ -258,7 +273,7 @@ cache_workers_min   = ceil(hot_data_GB / cache_per_worker_GB)
 }
 ```
 
-> Apply the Warp Speed NVMe cache formula and NVMe defaults table from Phase B. Return JSON only — no prose.
+> Apply the Warp Speed NVMe cache formula and NVMe defaults table from Phase B. **Return JSON only — stop after the JSON. Do NOT produce Phase D output.**
 
 ```json
 {
@@ -456,9 +471,30 @@ Target  →  <n> final workers
 
 ---
 
-## Phase D.5 — Parallel verification (HITL)
+## Phase D.5 — Verification
 
-Spawn in a **single message** (parallel). Do not proceed to Phase E until all return and verdict is presented.
+### Routing — inline vs parallel agents
+
+**Inline verification** (standard cases — no agents): all must be true:
+- No [XL] flag
+- No DR active
+- Warp Speed NOT active
+
+→ Run the 6 checks below as an inline checklist — one line per check. No agents.
+
+```
+PEER REVIEW (inline)
+V1 WORKLOAD  ✅/⚠️/❌  <one-line result>
+V2 T-SHIRT   ✅/⚠️/❌  <one-line result>
+V3 NETWORK   ✅/⚠️/❌  <one-line result>
+V4 WARP SPD  SKIPPED
+V5 DR        SKIPPED
+V6 FLAGS     ✅/⚠️/❌  <one-line result>
+VERDICT: ❌ Blocking: N  ⚠️ Warnings: N  ✅ Ready: yes/no
+```
+
+**Parallel agents** ([XL] flag, DR active, or Warp Speed active):
+→ Spawn in a **single message**. Use `subagent_type: "general-purpose"` (NOT fork). Do not proceed to Phase E until all return.
 
 **Agent persona (all 6):** You are a Senior Starburst Solutions Architect. Review this sizing critically. Return structured JSON only — no prose outside the JSON.
 
