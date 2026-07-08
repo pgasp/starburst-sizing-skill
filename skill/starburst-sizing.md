@@ -68,7 +68,7 @@ Never expose these mappings to the customer.
 | 2a SLA | M — 5–15s → [ASSUMPTIONS] | "How long do users wait today? Is it a problem?" |
 | 3a volume | 5 GB/query → [ASSUMPTIONS] | "What's your largest table? Do you filter by date/entity?" |
 | 3c growth | 20% / 12 months | — |
-| 4a deployment | Galaxy | — |
+| 4a deployment | SEP K8s | — |
 | 5a availability | No DR | — |
 
 ---
