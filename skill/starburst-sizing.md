@@ -396,14 +396,14 @@ Always clarify DR mode before sizing (licensing impact can double cost — invol
 ```
 STARBURST SIZING — <account>  |  <YYYY-MM-DD>
 
-── SYNTHÈSE ──────────────────────────────────────────────
-Pour <n> utilisateurs <workload type> avec une SLA cible de <n>s, Starburst
-nécessite <n> workers (<n> vCPUs) en production, sur des nœuds <vCPU>/<RAM>.
-Le point critique est <bottleneck> — <one-sentence explanation why>.
-<If Warp Speed candidate: "Un cache NVMe (Warp Speed) pourrait réduire ce cluster
-à <n> workers en absorbant ~<N>% des lectures répétées.">
-<If DR not discussed: "L'impact d'un Plan de Reprise d'Activité (DR) n'a pas été
-évalué — il peut doubler l'enveloppe de licences selon le mode choisi.">
+── SUMMARY ───────────────────────────────────────────────
+For <n> <workload type> users with a <n>s SLA target, Starburst requires
+<n> workers (<n> vCPUs) in production on <vCPU>/<RAM> nodes.
+The critical bottleneck is <bottleneck> — <one-sentence explanation why>.
+<If Warp Speed candidate: "An NVMe cache (Warp Speed) could reduce this cluster
+to <n> workers by absorbing ~<N>% of repeated reads.">
+<If DR not discussed: "Disaster Recovery has not been scoped — depending on the
+mode selected, it can double the license envelope.">
 
 ── WORKLOAD INPUTS ───────────────────────────────────────
 Workload type       : <BI dashboards / Ad-hoc / ETL / Mixed>
@@ -413,12 +413,12 @@ Volume/query        : <n> GB     [confirmed / assumption]
 Target SLA          : <n> s      [confirmed / assumption]
 Data sources        : <Lake / JDBC / Mixed>
 Deployment          : <Galaxy / SEP K8s / SEP VM>
-DR required         : <yes — mode: Active/Active | Warm | Cold / non spécifié>
+DR required         : <yes — mode: Active/Active | Warm | Cold / not specified>
 Expected growth     : <n>% / 12 months
 
 ── T-SHIRT SCORING ───────────────────────────────────────
-Évalue la charge globale sur 3 axes indépendants. Chaque axe donne 1–3 points
-selon son intensité. Le total détermine la taille de base du cluster.
+Scores the overall workload across 3 independent axes (1–3 pts each).
+The total drives the baseline cluster size before growth and network checks.
 Concurrency  : <n> users  → <S/M/L> (<pts> pt)
 Volume       : <n> GB     → <S/M/L> (<pts> pt)
 SLA          : <n> s      → <S/M/L> (<pts> pt)
@@ -426,15 +426,15 @@ SLA          : <n> s      → <S/M/L> (<pts> pt)
 Total        : <n> pts  → T-Shirt <S/M/L/XL>  →  range <n>–<n> workers
 
 ── NETWORK CHECK ─────────────────────────────────────────
-Vérifie que la bande passante réseau ne devient pas le facteur limitant avant
-la puissance de calcul. Le résultat est comparé au T-shirt — le plus élevé gagne.
+Verifies that network bandwidth does not become the bottleneck before compute.
+Result is compared to T-shirt — the higher worker count wins.
 <detailed calculation OR "N/A — uncertain inputs">
-Dominant constraint : <T-shirt / network>  →  <n> workers retenus
+Dominant constraint : <T-shirt / network>  →  <n> workers retained
 
 ── PRODUCTION RECOMMENDATION  (growth +<n>%) ────────────
-Recommandation finale après application de la croissance annuelle estimée.
+Final recommendation after applying the estimated annual growth rate.
 Node spec    : <vCPU> vCPU / <RAM> GB RAM  (min 16 vCPU / 64 GB)
-Coordinator  : 1 node — <vCPU> vCPU / <RAM> GB  (≥ 32 / 128 recommandé)
+Coordinator  : 1 node — <vCPU> vCPU / <RAM> GB  (recommended ≥ 32 / 128)
 Workers      : <n> nodes — <vCPU> vCPU / <RAM> GB each  [homogeneous]
 Total vCPUs  : <n> (workers) + <n> (coordinator)
 Autoscaling  : <yes min=<n>/max=<n> / no>
@@ -442,48 +442,48 @@ Autoscaling  : <yes min=<n>/max=<n> / no>
   query.max-memory-per-node = <value>
 
 ── MULTI-ENVIRONMENT ─────────────────────────────────────
-Détaille les ressources nécessaires par environnement. UAT = 30% de la prod,
-DEV = 10%. L'enveloppe totale est la base de négociation de la licence.
+Resources per environment. UAT = 30% of prod, DEV = 10%.
+Total licensed vCPUs is the basis for license negotiation.
 Prod          : <n> workers  →  <n> vCPUs
-DR (steady)   : <n> workers  →  <n> vCPUs  (<mode> / non spécifié)
+DR (steady)   : <n> workers  →  <n> vCPUs  (<mode> / not specified)
 DR (failover) : <n> workers  →  <n> vCPUs  (envelope max)
 UAT           : <n> workers  →  <n> vCPUs  (~30% prod)
 DEV           : <n> workers  →  <n> vCPUs  (~10% prod)
 TOTAL licensed: <n> vCPUs  |  TOTAL envelope: <n> vCPUs
 
 ── DR — DISASTER RECOVERY ────────────────────────────────
-Impact du mode de reprise sur l'enveloppe de licences (toujours clarifier avec l'AE).
-Active/Active (RTO ≈ 0)    : × 2 sur tous les workers — doublement de la licence
-Active/Passive Warm (≤30m) : ~40% workers en veille — impact modéré
-Active/Passive Cold (≤4h)  : 1 coordinateur en veille — impact minimal
-Statut actuel              : <mode choisi / non spécifié — à clarifier avant signature>
+Impact of recovery mode on the license envelope. Always clarify with AE before sizing.
+Active/Active  (RTO ≈ 0)   : ×2 all workers — doubles the license
+Active/Passive Warm (≤30m) : ~40% workers on standby — moderate impact
+Active/Passive Cold (≤4h)  : 1 coordinator on standby — minimal impact
+Current status             : <chosen mode / not specified — clarify before signature>
 
 ── WARP SPEED / CACHING  (omit if not active) ────────────
-Disques NVMe locaux sur chaque worker qui absorbent les lectures répétées.
-Pertinent quand les mêmes données sont consultées par de nombreux utilisateurs
-(tableaux de bord BI partagés). Réduit le cluster et la pression réseau.
+Local NVMe disks on each worker that absorb repeated reads.
+Relevant when the same data is queried by many users (shared BI dashboards).
+Reduces cluster size and network pressure.
 Workload profile : <BI / ad-hoc>  |  Cache hit rate : ~<N>%
 Raw vol/query    : <N> GB  →  Effective: <N> GB after cache
 Hot data         : <N> GB  |  Cache/worker: <N> GB (NVMe × 0.85)
 Workers (cache)  : ceil(<hot>/<cache_pw>) = <N>
 Workers retained : max(T-shirt=<N>, cache=<N>) = <N>
 Node type        : NVMe-backed — <vCPU>/<RAM>/<NVMe>  [ALL workers NVMe]
-⚠️ Elite tier — impliquer l'AE (trade-off : coût licence + coût nœuds NVMe)
+⚠️ Elite tier — involve AE (trade-off: license cost + NVMe node cost)
 
 ── POV STARTING CONFIG ───────────────────────────────────
-Configuration de démarrage recommandée pour le POC — volontairement conservatrice.
-L'objectif est de valider l'architecture avant de scaler vers la cible de production.
-Start   →  1 coordinator + 8 workers — même spec (min 16 vCPU / 64 GB), homogènes
-Iterate →  scaler coordinator OU workers (jamais les deux en même temps)
-Target  →  <n> workers en production
+Deliberately conservative starting point for the POC.
+Goal: validate architecture before scaling toward the production target.
+Start   →  1 coordinator + 8 workers — same spec (min 16 vCPU / 64 GB), homogeneous
+Iterate →  scale coordinator OR workers (never both at the same time)
+Target  →  <n> workers in production
 
 ── PRE-POV CHECKLIST ─────────────────────────────────────
-Points à vérifier avant tout test de charge — chaque item manquant fausse les résultats.
-□ ANALYZE sur toutes les tables de test  (stats manquantes = plans worst-case)
-□ QPS limit raised above 40              (défaut SEP — bloquer à 40 = cluster paraît sous-dimensionné)
-□ Taille fichier cible : 64–512 MB       (micro-fichiers = dégradation indépendante du cluster)
-□ 5–10 requêtes représentatives          (pic + courant) ; latences P50/P95/P99 mesurées
-□ Tous les nœuds homogènes               (spec ≥ 16 vCPU / 64 GB RAM)
+Verify before any load test — each missing item skews the results.
+□ ANALYZE on all test tables      (missing stats = worst-case query plans)
+□ QPS limit raised above 40       (SEP default — capped at 40 = cluster appears undersized)
+□ Target file size: 64–512 MB     (small files degrade performance independently of cluster size)
+□ 5–10 representative queries     (peak + common); P50/P95/P99 latencies measured
+□ All nodes homogeneous           (spec ≥ 16 vCPU / 64 GB RAM)
 
 ── FLAGS (show only applicable) ──────────────────────────
 [ASSUMPTIONS]  <list assumed inputs>
@@ -492,7 +492,7 @@ Points à vérifier avant tout test de charge — chaque item manquant fausse le
 [>32 WORKERS]  DSR required — alert SE manager
 [XL]           JMeter POC mandatory before sizing commitment
 [COORDINATOR]  JMX or Insights required for coordinator metrics
-[HA/DR]        DR non discuté — impact licence non évalué — clarifier avant signature
+[HA/DR]        DR not scoped — license impact unknown — clarify before signature
 [WARP SPEED]   Elite tier — all workers NVMe — quantify trade-off
 [ETL+WS]       Warp Speed has no value on ETL/full-scan workloads
 [NODE-SPEC]    Node spec below recommended (< 32 vCPU / 128 GB)
