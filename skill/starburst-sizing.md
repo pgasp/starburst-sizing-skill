@@ -4,9 +4,9 @@ description: >
   Size a Starburst cluster from workload metrics. Produces a T-shirt score,
   vCPU recommendation, Galaxy config (coordinator + workers), multi-env sizing,
   network bandwidth check, and a pre-POV checklist.
-  Triggers on: "size a cluster", "dimensionne un cluster", "sizing pour",
-  "combien de vCPUs pour", "quelle taille de cluster", "t-shirt sizing",
-  "cluster sizing", "how many workers", "combien de workers", "sizing starburst".
+  Triggers on: "size a cluster", "dimension a cluster", "sizing for",
+  "how many vCPUs for", "what cluster size", "t-shirt sizing",
+  "cluster sizing", "how many workers", "sizing starburst".
 ---
 
 # Starburst Cluster Sizing
